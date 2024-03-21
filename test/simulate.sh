@@ -36,6 +36,10 @@ for num in 1 4 7; do
   call_vsim rr_arb_tree_tb -GNumInp=$num -coverage -voptargs="+acc +cover=bcesfx" -suppress vsim-3009
 done
 
+for num in 1 4 7; do
+  call_vsim rr_arb_tree_lock_tb -GNumInp=$num -coverage -voptargs="+acc +cover=bcesfx" -suppress vsim-3009
+done
+
 for spill_reg in 0 1; do
   for num_inp in 1 4 18; do
     for num_out in 1 4 18; do

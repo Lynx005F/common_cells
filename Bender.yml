@@ -50,6 +50,7 @@ sources:
       - src/passthrough_stream_fifo.sv
       - src/popcount.sv
       - src/rr_arb_tree.sv
+      - src/rr_arb_tree_lock.sv
       - src/rstgen_bypass.sv
       - src/serial_deglitch.sv
       - src/shift_reg.sv
@@ -131,6 +132,7 @@ sources:
       - test/passthrough_stream_fifo_tb.sv
       - test/popcount_tb.sv
       - test/rr_arb_tree_tb.sv
+      - test/rr_arb_tree_lock_tb.sv
       - test/stream_test.sv
       - test/stream_register_tb.sv
       - test/stream_to_mem_tb.sv
