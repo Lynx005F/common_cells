@@ -156,7 +156,7 @@ module rr_arb_tree_lock #(
         logic [NumIn-1:0] req_q;
 
         assign lock_d     = req_o & ~gnt_i;
-        assign req_d      = (lock_q) ? req_q : req_i;
+        assign req_d      = (lock_q | lock_rr_i) ? req_q : req_i;
 
         always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
           if (!rst_ni) begin
@@ -248,6 +248,20 @@ module rr_arb_tree_lock #(
           end
         end
       end
+
+    end
+
+    logic lock_rr_q;
+    always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
+      if (!rst_ni) begin
+        lock_rr_q   <= '0;
+      end else begin
+        if (flush_i) begin
+          lock_rr_q   <= '0;
+        end else begin
+          lock_rr_q   <= lock_rr_i;
+        end
+      end
     end
 
     assign gnt_nodes[0] = gnt_i;
@@ -268,7 +282,13 @@ module rr_arb_tree_lock #(
             assign req_nodes[Idx0]   = req_d[l*2] | req_d[l*2+1];
 
             // arbitration: round robin
-            assign sel =  ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
+            always_comb begin
+              if (lock_rr_q) begin
+                sel = rr_q[NumLevels-1-level];
+              end else begin
+                sel =  ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
+              end
+            end
 
             assign index_nodes[Idx0] = idx_t'(sel);
             assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
@@ -294,7 +314,13 @@ module rr_arb_tree_lock #(
           assign req_nodes[Idx0]   = req_nodes[Idx1] | req_nodes[Idx1+1];
 
           // arbitration: round robin
-          assign sel =  ~req_nodes[Idx1] | req_nodes[Idx1+1] & rr_q[NumLevels-1-level];
+          always_comb begin
+            if (lock_rr_q) begin
+              sel = rr_q[NumLevels-1-level];
+            end else begin
+              sel =  ~req_nodes[Idx1] | req_nodes[Idx1+1] & rr_q[NumLevels-1-level];
+            end
+          end
 
           assign index_nodes[Idx0] = (sel) ?
             idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]}) :
