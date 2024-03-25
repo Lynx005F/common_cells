@@ -291,7 +291,6 @@ module rr_arb_tree_lock #(
         if (unsigned'(level) == NumLevels-1) begin : gen_first_level
           // if two successive indices are still in the vector...
           if (unsigned'(l) * 2 < NumIn-1) begin : gen_reduce
-            assign req_nodes[Idx0]   = req_d[l*2] | req_d[l*2+1];
 
             // arbitration: round robin
             always_comb begin
@@ -303,6 +302,7 @@ module rr_arb_tree_lock #(
             end
 
             assign index_nodes[Idx0] = idx_t'(sel);
+            assign req_nodes[Idx0]   = (sel) ? req_d[l*2+1] : req_d[l*2] ;
             assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
             assign gnt_o[l*2]        = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])   & ~sel;
             assign gnt_o[l*2+1]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
@@ -323,7 +323,6 @@ module rr_arb_tree_lock #(
         //////////////////////////////////////////////////////////////
         // general case for other levels within the tree
         end else begin : gen_other_levels
-          assign req_nodes[Idx0]   = req_nodes[Idx1] | req_nodes[Idx1+1];
 
           // arbitration: round robin
           always_comb begin
@@ -338,6 +337,7 @@ module rr_arb_tree_lock #(
             idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]}) :
             idx_t'({1'b0, index_nodes[Idx1][NumLevels-unsigned'(level)-2:0]});
 
+          assign req_nodes[Idx0]   = (sel) ? req_nodes[Idx1+1]  : req_nodes[Idx1];
           assign data_nodes[Idx0]  = (sel) ? data_nodes[Idx1+1] : data_nodes[Idx1];
           assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel;
           assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel;
@@ -371,10 +371,6 @@ module rr_arb_tree_lock #(
     gnt_idx : assert property(
       @(posedge clk_i) req_o |->  gnt_i |-> gnt_o[idx_o])
         else $fatal (1, "Idx_o / gnt_o do not match.");
-
-    req0 : assert property(
-      @(posedge clk_i) |req_i |-> req_o)
-        else $fatal (1, "Req in implies req out.");
 
     req1 : assert property(
       @(posedge clk_i) req_o |-> |req_i)
