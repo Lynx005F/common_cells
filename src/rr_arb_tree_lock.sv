@@ -156,7 +156,7 @@ module rr_arb_tree_lock #(
         logic [NumIn-1:0] req_q;
 
         assign lock_d     = req_o & ~gnt_i;
-        assign req_d      = (lock_q | lock_rr_i) ? req_q : req_i;
+        assign req_d      = (lock_q) ? req_q : req_i;
 
         always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
           if (!rst_ni) begin
@@ -201,9 +201,11 @@ module rr_arb_tree_lock #(
         assign req_d = req_i;
       end
 
+      idx_t next_idx;
+
       if (FairArb) begin : gen_fair_arb
         logic [NumIn-1:0] upper_mask,  lower_mask;
-        idx_t             upper_idx,   lower_idx,   next_idx;
+        idx_t             upper_idx,   lower_idx;
         logic             upper_empty, lower_empty;
 
         for (genvar i = 0; i < NumIn; i++) begin : gen_mask
@@ -230,10 +232,20 @@ module rr_arb_tree_lock #(
         );
 
         assign next_idx = upper_empty      ? lower_idx : upper_idx;
-        assign rr_d     = ((gnt_i && req_o) && !lock_rr_i) ? next_idx  : rr_q;
-
       end else begin : gen_unfair_arb
-        assign rr_d = ((gnt_i && req_o) && !lock_rr_i) ? ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1) : rr_q;
+        assign next_idx = ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1);
+      end
+
+      always_comb begin
+        if (lock_rr_i) begin
+          rr_d = idx_o;
+        end else begin
+          if (gnt_i && req_o) begin
+            rr_d = next_idx;
+          end else begin
+              rr_d = rr_q;
+          end
+        end
       end
 
       // this holds the highest priority
@@ -254,7 +266,7 @@ module rr_arb_tree_lock #(
     logic lock_rr_q;
     always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
       if (!rst_ni) begin
-        lock_rr_q   <= '0;
+        lock_rr_q   <= '1;
       end else begin
         if (flush_i) begin
           lock_rr_q   <= '0;
@@ -367,6 +379,10 @@ module rr_arb_tree_lock #(
     req1 : assert property(
       @(posedge clk_i) req_o |-> |req_i)
         else $fatal (1, "Req out implies req in.");
+
+    lock2 : assert property(
+      @(posedge clk_i) disable iff (!rst_ni) lock_rr_q |-> idx_o == $past(idx_o))
+        else $error (1, "Lock means idx_o does not change.");
     `endif
     `endif
     // pragma translate_on
